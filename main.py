@@ -1,11 +1,11 @@
 import telegram.ext
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
-from telegram import ParseMode
-import os
 from dotenv import load_dotenv
-import schedule
-import time
 import requests
+from datetime import datetime
+import pytz
+import os
+import threading
 
 
 load_dotenv()
@@ -42,60 +42,89 @@ def helps(update, context):
         """)
 
 
+# Use context.user_data to store user progress
 def advertise(update, context):
     user = update.message.from_user
-    print(f"Allowed Admins: {ALLOWED_ADMINS}")
-    print(f"User: {user}")
-    print(f"User ID: {user.id}")
-    print(f"User Username: {user.username}")
 
     # Check if the user sending the command is the admin user
     if user.username in ALLOWED_ADMINS:
-
         update.message.reply_text(
             "Send the post that you want to advertise in the channels where you are an admin.")
 
-        # Add a new handler to capture the admin's advertising message
-        context.user_data['advertising_user'] = user
-        context.user_data['advertising_message'] = None
-
-        # Add a new handler to capture the admin's advertising message
-        message_handler = MessageHandler(
-            Filters.text | Filters.photo | Filters.video & ~Filters.command, advertising_message_handler)
-        context.dispatcher.add_handler(message_handler)
+        # Set the initial state
+        context.user_data['state'] = 'waiting_message'
 
     else:
         update.message.reply_text("You are not authorized to use this command.")
+        return
 
 
-def advertising_message_handler(update, context):
-    user = update.message.from_user
-    advertising_user = context.user_data['advertising_user']
+def handle_user_input(update, context):
+    # Check if the message has text or caption
+    if update.message.text:
+        user_input = update.message.text.strip()
+    elif update.message.caption:
+        user_input = update.message.caption.strip()
+    else:
+        update.message.reply_text("Invalid message type. Please send a valid text or caption.")
+        return
 
-    print("Advertisement User: ", advertising_user)
-
-    # Check if the message sender is the admin who initiated the advertising
-    if user.username == advertising_user.username:
+    if context.user_data.get('state') == 'waiting_message':
         # Save the advertising message
         context.user_data['advertising_message'] = update.message
+        context.user_data['state'] = 'waiting_choice'
 
-        advertising_message = context.user_data['advertising_message']
-        print(f"Advertising Message: {advertising_message}")
+        # Ask the user if they want to send the message immediately or schedule it
+        keyboard = [
+            ["send now", "schedule later"]
+        ]
+        reply_markup = telegram.ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
+        update.message.reply_text("Advertising message received. Do you want to send it now or schedule it for later?",
+                                  reply_markup=reply_markup)
 
-        # Inform the admin that the advertising message has been received
-        update.message.reply_text(
-            f"Advertising message received. It will be posted in the channels.")
+    elif context.user_data.get('state') == 'waiting_choice':
+        choice = user_input.lower()
+        if choice == "send now":
+            send_advertising_message_to_all_channels(context)
+            update.message.reply_text("The advertising message has been sent.")
+        elif choice == "schedule later":
+            update.message.reply_text(
+                "Please specify the time to schedule the message (in HH:MM format, 24-hour clock).")
 
-        # Send the advertising message to all channels where you are admin
-        send_advertising_message_to_all_channels(context)
+            # Change the state to 'waiting_schedule'
+            context.user_data['state'] = 'waiting_schedule'
+        else:
+            update.message.reply_text("Invalid choice. Please choose 'Send Now' or 'Schedule Later.'")
 
-    else:
-        update.message.reply_text("You are not authorized to provide the advertising message.")
+    elif context.user_data.get('state') == 'waiting_schedule':
+        scheduled_time_str = user_input
+
+        try:
+            local_tz = pytz.timezone('Asia/Kolkata')  # Set the local time zone (India Standard Time)
+
+            # Set the date to today and parse the time
+            current_date = datetime.now(local_tz).date()
+            scheduled_time = local_tz.localize(
+                datetime.strptime(f"{current_date} {scheduled_time_str}", "%Y-%m-%d %H:%M"))
+
+            current_time = datetime.now(local_tz)
+            print("current time:", current_time)
+            print('schedule time', scheduled_time)
+
+            if scheduled_time > current_time:
+                # Schedule the job using threading
+                delta = scheduled_time - current_time
+                threading.Timer(delta.total_seconds(), send_advertising_message_to_all_channels, [context]).start()
+                update.message.reply_text(
+                    f"The advertising message is scheduled to be sent at {scheduled_time.strftime('%Y-%m-%d %H:%M:%S %Z')}.")
+            else:
+                update.message.reply_text("Invalid time. Please specify a time in the future.")
+        except ValueError:
+            update.message.reply_text("Invalid time format. Please use HH:MM format (24-hour clock).")
 
 
 def send_advertising_message_to_all_channels(context):
-    admin_username = context.user_data['advertising_user'].username
-    advertising_message = context.user_data['advertising_message']
+    advertising_message = context.user_data.get('advertising_message')
 
     if CHAT_ID:
         chat_ids = [int(chat_id) for chat_id in CHAT_ID.split(',')]
@@ -133,13 +162,18 @@ def send_advertising_message_to_all_channels(context):
                 print(response.json())
 
 
+# Create the MessageHandler to handle user input
+advertise_handler = MessageHandler(Filters.all & ~Filters.command, handle_user_input)
+
+# Create the Updater and add the handlers
 updater = telegram.ext.Updater(TOKEN, use_context=True)
 dispatch = updater.dispatcher
+dispatch.add_handler(CommandHandler('advertise', advertise))
+dispatch.add_handler(advertise_handler)
 
 dispatch.add_handler(telegram.ext.CommandHandler('start', start))
 dispatch.add_handler(telegram.ext.CommandHandler('help', helps))
-dispatch.add_handler(telegram.ext.CommandHandler('advertise', advertise))
 
-
+# Start the Bot
 updater.start_polling()
 updater.idle()
