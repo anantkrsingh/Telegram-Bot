@@ -10,9 +10,16 @@ import requests
 
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
-# ADMIN_USER = "WinbuzzPromoter".strip()  # username of the admin user
-ADMIN_USER = "manshi_rathour".strip()   # my personal user name for testing
-CHAT_ID = os.getenv("CHAT_ID")  # Add your channel chat ID here
+
+# List of allowed admin usernames
+
+# ALLOWED_ADMINS = ["manshi_rathour", "WinbuzzPromoter" ]
+ALLOWED_ADMINS = ["manshi_rathour"]   # my personal user name for testing
+
+# update your chat id for every channel or groups in .env file
+# you can follow steps to extract chat id from "to_extract_chat_id" file
+
+CHAT_ID = os.getenv("CHAT_ID")
 # print(CHAT_ID)
 bot = telegram.Bot(token=TOKEN)
 # print(bot)
@@ -37,13 +44,13 @@ def helps(update, context):
 
 def advertise(update, context):
     user = update.message.from_user
+    print(f"Allowed Admins: {ALLOWED_ADMINS}")
     print(f"User: {user}")
-    print(f"Admin User: {ADMIN_USER}")
     print(f"User ID: {user.id}")
     print(f"User Username: {user.username}")
 
     # Check if the user sending the command is the admin user
-    if user.username == ADMIN_USER:
+    if user.username in ALLOWED_ADMINS:
 
         update.message.reply_text(
             "Send the post that you want to advertise in the channels where you are an admin.")
@@ -70,7 +77,6 @@ def advertising_message_handler(update, context):
     # Check if the message sender is the admin who initiated the advertising
     if user.username == advertising_user.username:
         # Save the advertising message
-        # context.user_data['advertising_message'] = update.message.text
         context.user_data['advertising_message'] = update.message
 
         advertising_message = context.user_data['advertising_message']
@@ -126,12 +132,6 @@ def send_advertising_message_to_all_channels(context):
                     f'https://api.telegram.org/bot{TOKEN}/sendVideo', data=video_params)
                 print(response.json())
 
-
-# Schedule the advertisement at 12 PM every day
-# schedule.every().day.at("12:00").do(advertise)
-
-# Schedule the advertisement at 6 PM every day
-# schedule.every().day.at("18:00").do(advertise)
 
 updater = telegram.ext.Updater(TOKEN, use_context=True)
 dispatch = updater.dispatcher
