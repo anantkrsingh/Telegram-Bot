@@ -1,0 +1,18 @@
+step 1: Add your bot in that channel or group(as admin) whose chat_id you want
+
+step 2: Then send message in that channel or group
+        /my_id @TechnoPetal_bot   (/my_id @username_of_your_bot)
+
+step 3: https://api.telegram.org/botYOUR_BOT_TOKEN/getUpdates
+        Put your bot token in place of YOUR_BOT_TOKEN in above url.
+        When you run this url in any web browser you will get json response.
+
+step 4: From that json response copy chat_id which something looks like "chat":{"id":-123456789067, "":....}
+
+step 5: Keep this chat id safe in .env file
+        CHAT_ID=-123456789067, chat_id2, chat_id3, .....
+
+
+
+Note: You can test this by sending any message with the help of chat_id to that channel or group
+https://api.telegram.org/botYOUR_BOT_TOKEN/sendMessage?chat_id=-123456789067&text="This is test message"
