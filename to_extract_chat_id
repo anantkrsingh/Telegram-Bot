@@ -1,3 +1,7 @@
+Steps to extract CHAT_ID for every channel or groups in which you want to broadcast through Bot
+
+
+
 step 1: Add your bot in that channel or group(as admin) whose chat_id you want
 
 step 2: Then send message in that channel or group
