@@ -14,7 +14,7 @@ TOKEN = os.getenv("TOKEN")
 # List of allowed admin usernames
 
 # ALLOWED_ADMINS = ["manshi_rathour", "WinbuzzPromoter" ]
-ALLOWED_ADMINS = ["manshi_rathour","precise12"]   # my personal user name for testing
+ALLOWED_ADMINS = ["manshi_rathour","precise12","pehlipariksha"]   # my personal user name for testing
 
 # update your chat id for every channel or groups in .env file
 # you can follow steps to extract chat id from "to_extract_chat_id" file
